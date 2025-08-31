@@ -2,6 +2,7 @@ package dev.gigaherz.jsonthings.things.scripting;
 
 import java.util.ArrayList;
 
+import org.checkerframework.checker.units.qual.cd;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
@@ -64,17 +65,15 @@ public class McFunctionScript extends ThingScript {
             return new InteractionResultHolder<ItemStack>(
                     (InteractionResult) getResultByEventType(FlexEventType.USE_BLOCK_WITHOUT_ITEM, context, o),
                     context.get(FlexEventContext.STACK));
-        if (event == FlexEventType.UPDATE)
-        {
+        if (event == FlexEventType.UPDATE) {
             Player player = ((Player) context.get(FlexEventContext.USER));
             InteractionHand hand = context.get(FlexEventContext.HAND);
-            if(hand == InteractionHand.OFF_HAND)
-            {
+            if (hand == InteractionHand.OFF_HAND) {
                 return player.getOffhandItem();
             }
             return player.getMainHandItem();
         }
-            
+
         return getDefaultByEventType(event, context);
     }
 
@@ -102,6 +101,8 @@ public class McFunctionScript extends ThingScript {
                 server.getCommands().performPrefixedCommand(new CommandSourceStack(new CommandSource() {
                     @Override
                     public void sendSystemMessage(Component message) {
+                        //if (resultComponents.size() > 1)
+                        //    server.getPlayerList().broadcastSystemMessage(resultComponents.getLast(),true);// first is start info and last is the result
                         resultComponents.add(message);
                     }
 
@@ -121,11 +122,14 @@ public class McFunctionScript extends ThingScript {
                     }
                 }, pos, Vec2.ZERO, level, 4, "", Component.literal(""),
                         server, player),
-                        "function " + function + " " + String.format("{X:%f,Y:%f,Z:%f,Hand:%s,Name:%s}", pos.x, pos.y,
-                                pos.z, hand, player.getName().getString()));
+                        "function " + function + " "
+                                + String.format("{X:%f,Y:%f,Z:%f,Hand:%s,Name:%s}", pos.x, pos.y,
+                                        pos.z, hand, player.getName().getString())); // I've tryed to pass Item Name, but something may went wrong with translation
                 Object result = null;
+                for (Component component : resultComponents) {
+                    LOGGER.debug("Function {} ends with messages {}", function, component);
+                }
                 ComponentContents message = resultComponents.getLast().getContents();
-                // LOGGER.info(message.toString());
                 try {
                     if (message instanceof TranslatableContents tcontents) {
                         Object[] args = tcontents.getArgs();
@@ -134,7 +138,9 @@ public class McFunctionScript extends ThingScript {
                 } catch (Exception e) {
                     LOGGER.error("Error processing function result: {} Check your function returning please.", message);
                 }
-                return getResultByEventType(event, context, result);
+                result=getResultByEventType(event, context, result);
+                LOGGER.debug(result.toString());
+                return result;
             }
         }
         return getDefaultByEventType(event, context);
