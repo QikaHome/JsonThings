@@ -2,14 +2,12 @@ package dev.gigaherz.jsonthings.things.scripting;
 
 import java.util.ArrayList;
 
-import org.checkerframework.checker.units.qual.cd;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
 
 import dev.gigaherz.jsonthings.things.events.FlexEventContext;
 import dev.gigaherz.jsonthings.things.events.FlexEventType;
-import net.minecraft.client.Minecraft;
 import net.minecraft.commands.CommandSource;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
@@ -29,20 +27,45 @@ import net.minecraft.world.phys.Vec3;
 
 public class McFunctionScript extends ThingScript {
     public final String function;
+    public final Boolean debug;
     public static final Logger LOGGER = LogUtils.getLogger();
 
-    public McFunctionScript(String string) {
+    public McFunctionScript(String string, Boolean debug) {
         this.function = string;
+        this.debug = debug;
+    }
+    public InteractionResult getResult(int i)
+    {
+        switch(i)
+        {
+            case 0: return InteractionResult.PASS;
+            case 1: return InteractionResult.SUCCESS;
+            case 2: return InteractionResult.FAIL;
+            case 3: return InteractionResult.CONSUME;
+            default: return InteractionResult.PASS;
+        }
+    }
+
+        public ItemInteractionResult getItemResult(int i)
+    {
+        switch(i)
+        {
+            case 0: return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+            case 1: return ItemInteractionResult.SUCCESS;
+            case 2: return ItemInteractionResult.FAIL;
+            case 3: return ItemInteractionResult.CONSUME;
+            default: return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        }
     }
 
     public Object getDefaultByEventType(FlexEventType event, FlexEventContext context) {
         if (event == FlexEventType.USE_BLOCK_WITH_ITEM)
-            return ItemInteractionResult.CONSUME;
+            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         if (event == FlexEventType.USE_BLOCK_WITHOUT_ITEM || event == FlexEventType.BEFORE_DESTROY)
-            return InteractionResult.CONSUME;
+            return InteractionResult.PASS;
         if (event == FlexEventType.USE_ITEM_ON_AIR || event == FlexEventType.USE_ITEM_ON_BLOCK
                 || event == FlexEventType.BEGIN_USING_ITEM || event == FlexEventType.END_USING)
-            return new InteractionResultHolder<ItemStack>(InteractionResult.CONSUME,
+            return new InteractionResultHolder<ItemStack>(InteractionResult.PASS,
                     context.get(FlexEventContext.STACK));
         if (event == FlexEventType.UPDATE)
             return context.get(FlexEventContext.STACK);
@@ -51,14 +74,12 @@ public class McFunctionScript extends ThingScript {
 
     public Object getResultByEventType(FlexEventType event, FlexEventContext context, Object o) {
         if (event == FlexEventType.USE_BLOCK_WITH_ITEM) {
-            if (o == null)
-                return ItemInteractionResult.CONSUME;
             if (o instanceof Integer r)
-                return ItemInteractionResult.values()[r];
+                return getItemResult(r);
         }
         if (event == FlexEventType.USE_BLOCK_WITHOUT_ITEM || event == FlexEventType.BEFORE_DESTROY) {
-            return ((ItemInteractionResult) getResultByEventType(FlexEventType.USE_BLOCK_WITH_ITEM, context, o))
-                    .result();
+            if (o instanceof Integer r)
+                return getResult(r);
         }
         if (event == FlexEventType.USE_ITEM_ON_AIR || event == FlexEventType.USE_ITEM_ON_BLOCK
                 || event == FlexEventType.BEGIN_USING_ITEM || event == FlexEventType.END_USING)
@@ -93,16 +114,20 @@ public class McFunctionScript extends ThingScript {
             } else {
                 pos = new Vec3(player.getX(), player.getY(), player.getZ());
             }
-            String hand = context.get(FlexEventContext.HAND) == InteractionHand.OFF_HAND ? "weapon.offhand"
-                    : "weapon.mainhand";
+            LOGGER.debug(event.toString());
+            String hand = event != FlexEventType.USE_BLOCK_WITHOUT_ITEM
+                    && context.get(FlexEventContext.HAND) == InteractionHand.OFF_HAND ? "weapon.offhand"
+                            : "weapon.mainhand";
+            LOGGER.debug(hand);
             MinecraftServer server = level.getServer();
             if (server != null) {
                 ArrayList<Component> resultComponents = new ArrayList<>();
                 server.getCommands().performPrefixedCommand(new CommandSourceStack(new CommandSource() {
                     @Override
                     public void sendSystemMessage(Component message) {
-                        //if (resultComponents.size() > 1)
-                        //    server.getPlayerList().broadcastSystemMessage(resultComponents.getLast(),true);// first is start info and last is the result
+                        if (debug)
+                            server.getPlayerList().broadcastSystemMessage(message, true);
+                        // first is start info and last is the result
                         resultComponents.add(message);
                     }
 
@@ -124,23 +149,26 @@ public class McFunctionScript extends ThingScript {
                         server, player),
                         "function " + function + " "
                                 + String.format("{X:%f,Y:%f,Z:%f,Hand:%s,Name:%s}", pos.x, pos.y,
-                                        pos.z, hand, player.getName().getString())); // I've tryed to pass Item Name, but something may went wrong with translation
-                Object result = null;
-                for (Component component : resultComponents) {
-                    LOGGER.debug("Function {} ends with messages {}", function, component);
-                }
-                ComponentContents message = resultComponents.getLast().getContents();
+                                        pos.z, hand, player.getName().getString())); // I've tryed to pass Item Name,
+                                                                                     // but something may went wrong
+                                                                                     // with translation
                 try {
+                    Object result = null;
+                    for (Component component : resultComponents) {
+                        LOGGER.debug("Function {} ends with messages {}", function, component);
+                    }
+                    ComponentContents message = resultComponents.getLast().getContents();
                     if (message instanceof TranslatableContents tcontents) {
                         Object[] args = tcontents.getArgs();
                         result = (int) args[args.length - 1];
                     }
+
+                    result = getResultByEventType(event, context, result);
+                    LOGGER.debug(result.toString());
+                    return result;
                 } catch (Exception e) {
-                    LOGGER.error("Error processing function result: {} Check your function returning please.", message);
+                    LOGGER.error("Error processing function result: {} Check your function returning please.");
                 }
-                result=getResultByEventType(event, context, result);
-                LOGGER.debug(result.toString());
-                return result;
             }
         }
         return getDefaultByEventType(event, context);

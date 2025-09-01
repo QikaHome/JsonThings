@@ -11,6 +11,11 @@ public class McFunctionScriptBuilder extends BaseBuilder<McFunctionScript, McFun
         super(ownerParser, registryName);
     }
     public String function;
+    public Boolean debug=false;
+    public void setDebug(Boolean debug)
+    {
+        this.debug = debug;
+    }
     @Override
     protected String getThingTypeDisplayName() {
         return "Minecraft Function Script";
@@ -26,6 +31,6 @@ public class McFunctionScriptBuilder extends BaseBuilder<McFunctionScript, McFun
     }
     @Override
     protected McFunctionScript buildInternal() {
-        return new McFunctionScript(getFunction());
+        return new McFunctionScript(getFunction(), debug);
     }
 }
