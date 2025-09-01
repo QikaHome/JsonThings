@@ -30,7 +30,8 @@ public class McFunctionScriptParser extends ThingParser<McFunctionScriptBuilder>
         final McFunctionScriptBuilder builder = new McFunctionScriptBuilder(this, key);
         JParse.begin(data)
                 .key("function", val -> val.string().handle(builder::setFunction))
-                .ifKey("debug", val -> val.bool().handle(builder::setDebug));
+                .ifKey("debug", val -> val.bool().handle(builder::setDebug))
+                .ifKey("client_logic", val -> val.obj().raw(obj -> builder.setClientLogic(obj)));
         builderModification.accept(builder);
         ScriptParser.instance().putScript(key, builder.build());
         return builder;
