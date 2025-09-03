@@ -16,8 +16,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-public class ScriptParser extends SimplePreparableReloadListener<Map<ResourceLocation, ThingScript>>
-{
+public class ScriptParser extends SimplePreparableReloadListener<Map<ResourceLocation, ThingScript>> {
     public static final Logger LOGGER = LogManager.getLogger();
 
     private static final ScriptParser instance = new ScriptParser();
@@ -28,62 +27,61 @@ public class ScriptParser extends SimplePreparableReloadListener<Map<ResourceLoc
 
     private static boolean enabled = false;
 
-    public static ScriptParser instance()
-    {
+    public static ScriptParser instance() {
         return instance;
     }
 
-    public static void enable(ThingResourceManager manager)
-    {
-        if (!enabled)
-        {
+    public static void enable(ThingResourceManager manager) {
+        if (!enabled) {
             manager.addResourceReloadListener(instance());
             enabled = true;
         }
     }
 
-    public static boolean isEnabled()
-    {
+    public static boolean isEnabled() {
         return enabled;
     }
 
     private Map<ResourceLocation, ThingScript> scripts = new HashMap<>();
 
+    public <T extends ThingScript> void putScript(ResourceLocation rl, T script) {
+        LOGGER.debug("Registering mcfunction script: {}", rl);
+        if (!scripts.containsKey(rl))
+            scripts.put(rl, script);
+    }
+
     @Override
-    protected Map<ResourceLocation, ThingScript> prepare(ResourceManager pResourceManager, ProfilerFiller pProfiler)
-    {
+    protected Map<ResourceLocation, ThingScript> prepare(ResourceManager pResourceManager, ProfilerFiller pProfiler) {
         var resources = pResourceManager.listResources(SCRIPTS_FOLDER, t -> t.getPath().endsWith(JS_EXTENSION));
 
         var map = new HashMap<ResourceLocation, ThingScript>();
-        for (var entry : resources.entrySet())
-        {
+        map.putAll(scripts);
+        for (var entry : resources.entrySet()) {
             var key = entry.getKey();
             var res = entry.getValue();
             var path = key.getPath();
             var cleanPath = path.substring(SCRIPTS_FOLDER_LENGTH + 1, path.length() - JS_EXTENSION_LENGTH);
             var id = ResourceLocation.fromNamespaceAndPath(key.getNamespace(), cleanPath);
-            try
-            {
+            try {
                 map.put(id, RhinoThingScript.fromResource(res, id.toString()));
-            }
-            catch (IOException | ScriptException e)
-            {
+            } catch (IOException | ScriptException e) {
                 LOGGER.error("Error parsing script " + res, e);
             }
         }
-
         return map;
     }
 
     @Override
-    protected void apply(Map<ResourceLocation, ThingScript> pObject, ResourceManager pResourceManager, ProfilerFiller pProfiler)
-    {
+    protected void apply(Map<ResourceLocation, ThingScript> pObject, ResourceManager pResourceManager,
+            ProfilerFiller pProfiler) {
         scripts = pObject;
     }
 
     @Nonnull
-    public ThingScript getEvent(ResourceLocation id)
-    {
+    public ThingScript getEvent(ResourceLocation id) {
+        for (var iterable_element : scripts.keySet()) {
+            LOGGER.debug("Checking script: {}", iterable_element);
+        }
         if (!scripts.containsKey(id))
             throw new KeyNotFoundException("Script with id " + id + " not found.");
         return scripts.get(id);
