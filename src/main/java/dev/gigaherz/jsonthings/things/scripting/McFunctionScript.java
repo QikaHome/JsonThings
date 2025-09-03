@@ -2,24 +2,23 @@ package dev.gigaherz.jsonthings.things.scripting;
 
 import java.util.ArrayList;
 
-import org.jline.utils.Log;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
 
-import ca.weblite.objc.Client;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import dev.gigaherz.jsonthings.things.events.FlexEventContext;
+import static dev.gigaherz.jsonthings.things.events.FlexEventContext.*;
 import dev.gigaherz.jsonthings.things.events.FlexEventType;
 import net.minecraft.commands.CommandSource;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentContents;
 import net.minecraft.network.chat.contents.TranslatableContents;
-import net.minecraft.references.Blocks;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -33,14 +32,16 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.client.event.ModelEvent.RegisterAdditional;
-import net.neoforged.neoforge.registries.NeoForgeRegistries;
 
 public class McFunctionScript extends ThingScript {
     public final String function;
     public final Boolean debug;
+    public static final String NO_TARGET = "@s[distance=1]"; // an empty target-selector
+    public static final String TRUE = "predicate []";
+    public static final String FALSE = "predicate {condition:value_check,value:1,range:0}";
 
     public class ClientLogic {
         public ClientLogic(String item, String block, String hand) {
@@ -66,14 +67,14 @@ public class McFunctionScript extends ThingScript {
         }
 
         public Object getResult(FlexEventType event, FlexEventContext context) {
-            if(item==null && block==null && hand==null)
+            if (this.item == null && this.block == null && this.hand == null)
                 return getDefaultByEventType(event, context);
             Entity user = context.get(FlexEventContext.USER);
             Level level = user.level();
             if (!level.isClientSide)
                 return getDefaultByEventType(event, context); // Dont call me plz
             InteractionHand hand = context.get(FlexEventContext.HAND);
-            if (item != null) {
+            if (this.item != null) {
                 ItemStack stack1 = context.get(FlexEventContext.STACK);
                 Player player = user instanceof Player p ? p : null;
                 ItemStack stack2 = player != null
@@ -87,18 +88,18 @@ public class McFunctionScript extends ThingScript {
                 if ((a || !stack1.is(ano)) && (b || !stack2.is(ano)))
                     return getDefaultByEventType(event, context);
             }
-            if (hand != null) {
+            if (this.hand != null) {
                 if (hand == null)
                     return getDefaultByEventType(event, context);
                 if (!hand.toString().equals(this.hand))
                     return getDefaultByEventType(event, context);
             }
-            if (block != null) {
+            if (this.block != null) {
                 BlockPos pos = context.get(FlexEventContext.BLOCK_POS);
                 if (pos == null)
                     return getDefaultByEventType(event, context);
                 Block one = level.getBlockState(pos).getBlock();
-                Block ano = BuiltInRegistries.BLOCK.get(ResourceLocation.tryParse(block));
+                Block ano = BuiltInRegistries.BLOCK.get(ResourceLocation.tryParse(this.block));
                 if (!one.equals(ano))
                     return getDefaultByEventType(event, context);
             }
@@ -186,82 +187,124 @@ public class McFunctionScript extends ThingScript {
         return getDefaultByEventType(event, context);
     }
 
+    public static <T> T orElse(T a, T b) {
+        return a != null ? a : b;
+    }
+
     @Override
     public Object apply(FlexEventType event, FlexEventContext context) {
-        Entity user;
-        if (context.get(FlexEventContext.USER) instanceof Entity p)
-            user = p;
-        else
-            return getDefaultByEventType(event, context);
-        LOGGER.debug("Executing mcfunction script: {}, client: {}", function,
-                user.level().isClientSide() ? "true" : "false");
-        if (user.level() instanceof ServerLevel level) {
-            BlockPos bpos = context.get(FlexEventContext.BLOCK_POS);
-            Vec3 pos;
-            if (bpos != null) {
-                pos = new Vec3(bpos.getX(), bpos.getY(), bpos.getZ());
-            } else {
-                pos = new Vec3(user.getX(), user.getY(), user.getZ());
+        try {
+            Level world = context.get(WORLD); // Nonnull
+            LOGGER.debug("Executing mcfunction script: {}, client: {}", function,
+                    world.isClientSide ? "true" : "false");
+            if (world.isClientSide) { // User can ONLY be clientplayer
+                Object result = clientLogic.getResult(event, context);
+                LOGGER.debug("ClientLogic result: {}", result.toString());
+                return result;
             }
-            LOGGER.debug(event.toString());
-            String hand = event != FlexEventType.USE_BLOCK_WITHOUT_ITEM
-                    && context.get(FlexEventContext.HAND) == InteractionHand.OFF_HAND ? "weapon.offhand"
-                            : "weapon.mainhand";
-            LOGGER.debug(hand);
-            MinecraftServer server = level.getServer();
-            if (server != null) {
-                ArrayList<Component> resultComponents = new ArrayList<>();
-                server.getCommands().performPrefixedCommand(new CommandSourceStack(new CommandSource() {
-                    @Override
-                    public void sendSystemMessage(Component message) {
-                        if (debug)
-                            server.getPlayerList().broadcastSystemMessage(message, true);
-                        // first is start info and last is the result
-                        resultComponents.add(message);
-                    }
+            if (world instanceof ServerLevel level) {
+                // Try to pass in all the *useless* args
+                ItemStack stack = context.get(STACK);
+                String Item = stack == null ? "minecraft:air" : stack.getItem().toString();
+                int Count = stack == null ? 0 : stack.getCount();
+                LivingEntity user = context.get(USER);
+                String UserUUID = user == null ? NO_TARGET : user.getUUID().toString();
+                InteractionHand hand = context.get(HAND);
+                String HandSlot = hand == InteractionHand.OFF_HAND ? "weapon.offhand" : "weapon.mainhand";
+                HitResult rayTraceResult = context.get(RAYTRACE_RESULT);
+                Vec3 RayPos = rayTraceResult == null ? new Vec3(0, 0, 0) : rayTraceResult.getLocation();
+                BlockPos hitPos = context.get(HIT_POS);
+                Vec3 HitPos = hitPos == null ? new Vec3(0, 0, 0)
+                        : new Vec3(hitPos.getX(), hitPos.getY(), hitPos.getZ());
+                Direction hitFace = context.get(HIT_FACE);
+                String HitFace = hitFace == null ? "east" : hitFace.name();
+                Vec3 HitVec = orElse(context.get(HIT_VEC), new Vec3(0, 0, 0));
+                Boolean hitInside = context.get(HIT_INSIDE);
+                String HitInside = hitInside == null ? FALSE : hitInside == true ? TRUE : FALSE;
+                Entity hitEntity = context.get(HIT_ENTITY);
+                String HitEntityUUID = hitEntity == null ? NO_TARGET : hitEntity.getUUID().toString();
+                int Slot = orElse(context.get(SLOT), 0);
+                Boolean selected = context.get(SELECTED);
+                String Selected = selected == null ? FALSE : selected == true ? TRUE : FALSE;
+                Entity otherUser = context.get(OTHER_USER);
+                String OtherUserUUID = otherUser == null ? NO_TARGET : otherUser.getUUID().toString();
+                int TimeLeft = orElse(context.get(TIME_LEFT), 0);
+                BlockPos blockPos = context.get(BLOCK_POS);
+                BlockPos BlockPos = blockPos == null ? new BlockPos(0, 0, 0)
+                        : new BlockPos(blockPos.getX(), blockPos.getY(), blockPos.getZ());
+                BlockState blockState = context.get(BLOCK_STATE);
+                String Block = blockState == null ? "minecraft:air"
+                        : BuiltInRegistries.BLOCK.wrapAsHolder(blockState.getBlock()).getRegisteredName();
+                // String State; // McFunction can get this itself // Actually I dont know how to get
+                Entity attacker = context.get(ATTACKER);
+                String AttackerUUID = attacker == null ? NO_TARGET : attacker.getUUID().toString();
+                Entity target = context.get(TARGET);
+                String TargetUUID = target == null ? NO_TARGET : target.getUUID().toString();
+                // Abandon Enchantments
+                Vec3 pos;
+                if (blockPos != null) {
+                    pos = new Vec3(blockPos.getX(), blockPos.getY(), blockPos.getZ());
+                } else {
+                    pos = new Vec3(user.getX(), user.getY(), user.getZ());
+                }
+                String args = String.format(
+                        "{Item:\"%s\",Count:%d,User:\"%s\",Hand:\"%s\",RayX:%f,RayY:%f,RayZ:%f,HitX:%f,HitY:%f,HitZ:%f,HitFace:\"%s\",HitVX:%f,HitVY:%f,HitVZ:%f,HitInside:\"%s\",HitEntity:\"%s\",Slot:%d,Selected:\"%s\",OtherUser:\"%s\",TimeLeft:%d,BlockX:%d,BlockY:%d,BlockZ:%d,Attacker:\"%s\",Target:\"%s\",Block:\"%s\"}",
+                        Item, Count, UserUUID, HandSlot, RayPos.x, RayPos.y, RayPos.z, HitPos.x, HitPos.y, HitPos.z,
+                        HitFace, HitVec.x, HitVec.y, HitVec.z, HitInside, HitEntityUUID, Slot, Selected, OtherUserUUID,
+                        TimeLeft, BlockPos.getX(), BlockPos.getY(), BlockPos.getZ(), AttackerUUID, TargetUUID, Block);
+                LOGGER.debug(event.toString());
+                MinecraftServer server = level.getServer();
+                if (server != null) {
+                    ArrayList<Component> resultComponents = new ArrayList<>();
+                    server.getCommands().performPrefixedCommand(new CommandSourceStack(new CommandSource() {
+                        @Override
+                        public void sendSystemMessage(Component message) {
+                            if (debug)
+                                server.getPlayerList().broadcastSystemMessage(message, true);
+                            // first is start info and last is the result
+                            resultComponents.add(message);
+                        }
 
-                    @Override
-                    public boolean acceptsSuccess() {
-                        return true;
-                    }
+                        @Override
+                        public boolean acceptsSuccess() {
+                            return true;
+                        }
 
-                    @Override
-                    public boolean acceptsFailure() {
-                        return true;
-                    }
+                        @Override
+                        public boolean acceptsFailure() {
+                            return true;
+                        }
 
-                    @Override
-                    public boolean shouldInformAdmins() {
-                        return false;
-                    }
-                }, pos, Vec2.ZERO, level, 4, "", Component.literal(""),
-                        server, user),
-                        "function " + function + " "
-                                + String.format("{X:%f,Y:%f,Z:%f,Hand:%s,Name:%s}", pos.x, pos.y,
-                                        pos.z, hand, user.getName().getString())); // I've tryed to pass Item Name,
-                                                                                   // but something may went wrong
-                                                                                   // with translation
-                try {
-                    Object result = null;
-                    for (Component component : resultComponents) {
-                        LOGGER.debug("Function {} ends with messages {}", function, component);
-                    }
-                    ComponentContents message = resultComponents.getLast().getContents();
-                    if (message instanceof TranslatableContents tcontents) {
-                        Object[] args = tcontents.getArgs();
-                        result = (int) args[args.length - 1];
-                    }
+                        @Override
+                        public boolean shouldInformAdmins() {
+                            return false;
+                        }
+                    }, pos, Vec2.ZERO, level, 4, "", Component.literal(""),
+                            server, user),
+                            "function " + function + " " + args);
+                    try {
+                        Object result = null;
+                        for (Component component : resultComponents) {
+                            LOGGER.debug("Function {} ends with messages {}", function, component);
+                        }
+                        ComponentContents message = resultComponents.getLast().getContents();
+                        if (message instanceof TranslatableContents tcontents) {
+                            Object[] results = tcontents.getArgs();
+                            result = (int) results[results.length - 1];
+                        }
 
-                    result = getResultByEventType(event, context, result);
-                    LOGGER.debug(result.toString());
-                    return result;
-                } catch (Exception e) {
-                    LOGGER.error("Error processing function result: {} Check your function returning please.");
+                        result = getResultByEventType(event, context, result);
+                        LOGGER.debug(result.toString());
+                        return result;
+                    } catch (Exception e) {
+                        LOGGER.error("Error processing function result: {} Check your function returning please.");
+                    }
                 }
             }
+        } catch (Exception e) {
+            LOGGER.error("Error executing mcfunction script: {}", function, e);
         }
-        Object result = clientLogic.getResult(event, context);
-        LOGGER.debug("clientLogic result: {}", result.toString());
-        return result;
+        LOGGER.debug("Function {} fall to default result", function);
+        return getDefaultByEventType(event, context);
     }
 }
