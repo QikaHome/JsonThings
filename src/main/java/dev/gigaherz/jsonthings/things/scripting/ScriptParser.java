@@ -1,5 +1,6 @@
 package dev.gigaherz.jsonthings.things.scripting;
 
+import dev.gigaherz.jsonthings.things.parsers.McFunctionScriptParser;
 import dev.gigaherz.jsonthings.things.parsers.ThingResourceManager;
 import dev.gigaherz.jsonthings.things.scripting.rhino.RhinoThingScript;
 import dev.gigaherz.jsonthings.util.KeyNotFoundException;
@@ -44,18 +45,12 @@ public class ScriptParser extends SimplePreparableReloadListener<Map<ResourceLoc
 
     private Map<ResourceLocation, ThingScript> scripts = new HashMap<>();
 
-    public <T extends ThingScript> void putScript(ResourceLocation rl, T script) {
-        LOGGER.debug("Registering mcfunction script: {}", rl);
-        if (!scripts.containsKey(rl))
-            scripts.put(rl, script);
-    }
-
     @Override
     protected Map<ResourceLocation, ThingScript> prepare(ResourceManager pResourceManager, ProfilerFiller pProfiler) {
         var resources = pResourceManager.listResources(SCRIPTS_FOLDER, t -> t.getPath().endsWith(JS_EXTENSION));
 
         var map = new HashMap<ResourceLocation, ThingScript>();
-        map.putAll(scripts);
+
         for (var entry : resources.entrySet()) {
             var key = entry.getKey();
             var res = entry.getValue();
@@ -79,11 +74,11 @@ public class ScriptParser extends SimplePreparableReloadListener<Map<ResourceLoc
 
     @Nonnull
     public ThingScript getEvent(ResourceLocation id) {
-        for (var iterable_element : scripts.keySet()) {
-            LOGGER.debug("Checking script: {}", iterable_element);
-        }
-        if (!scripts.containsKey(id))
-            throw new KeyNotFoundException("Script with id " + id + " not found.");
-        return scripts.get(id);
+        if (scripts.containsKey(id))
+            return scripts.get(id);
+        if (McFunctionScriptParser.scripts.containsKey(id))
+            return McFunctionScriptParser.scripts.get(id);
+        throw new KeyNotFoundException("Script with id " + id + " not found.");
+
     }
 }

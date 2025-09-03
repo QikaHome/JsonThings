@@ -1,5 +1,7 @@
 package dev.gigaherz.jsonthings.things.parsers;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import org.apache.commons.lang3.mutable.MutableFloat;
@@ -24,6 +26,15 @@ public class McFunctionScriptParser extends ThingParser<McFunctionScriptBuilder>
     public McFunctionScriptParser() {
         super(GSON, "mcfunction_script");
     }
+
+    public static final Map<ResourceLocation, ThingScript> scripts = new HashMap<>();
+
+    public <T extends ThingScript> void putScript(ResourceLocation rl, T script) {
+        LOGGER.debug("Registering mcfunction script: {}", rl);
+        if (!scripts.containsKey(rl))
+            scripts.put(rl, script);
+    }
+
     @Override
     public McFunctionScriptBuilder processThing(ResourceLocation key, JsonObject data,
             Consumer<McFunctionScriptBuilder> builderModification) {
@@ -33,7 +44,7 @@ public class McFunctionScriptParser extends ThingParser<McFunctionScriptBuilder>
                 .ifKey("debug", val -> val.bool().handle(builder::setDebug))
                 .ifKey("client_logic", val -> val.obj().raw(obj -> builder.setClientLogic(obj)));
         builderModification.accept(builder);
-        ScriptParser.instance().putScript(key, builder.build());
+        putScript(key, builder.build());
         return builder;
     }
 }

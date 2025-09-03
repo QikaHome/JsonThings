@@ -1,3 +1,4 @@
 {
-  "function": "testpack:mcfunc1"
+  "function": "testpack:mcfunc1",
+  "debug":true
 }
