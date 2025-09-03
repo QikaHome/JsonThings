@@ -14,6 +14,7 @@ import dev.gigaherz.jsonthings.things.builders.BaseBuilder;
 import dev.gigaherz.jsonthings.things.builders.McFunctionScriptBuilder;
 import dev.gigaherz.jsonthings.things.scripting.ScriptParser;
 import dev.gigaherz.jsonthings.things.scripting.ThingScript;
+import dev.gigaherz.jsonthings.things.scripting.client.IClientLogic;
 import dev.gigaherz.jsonthings.util.parse.JParse;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;
@@ -42,7 +43,12 @@ public class McFunctionScriptParser extends ThingParser<McFunctionScriptBuilder>
         JParse.begin(data)
                 .key("function", val -> val.string().handle(builder::setFunction))
                 .ifKey("debug", val -> val.bool().handle(builder::setDebug))
-                .ifKey("client_logic", val -> val.obj().raw(obj -> builder.setClientLogic(obj)));
+                .ifKey("client_logic",
+                        val -> val.obj()
+                                .key("type",
+                                        val2 -> builder.setClientLogic(IClientLogic.getClientLogic(
+                                                ResourceLocation.parse(val2.string().getAsString()),
+                                                val.obj().getAsJsonObject()))));
         builderModification.accept(builder);
         putScript(key, builder.build());
         return builder;
