@@ -1,6 +1,8 @@
 package dev.gigaherz.jsonthings.things.scripting;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Map;
 
 import org.slf4j.Logger;
 
@@ -11,6 +13,7 @@ import net.minecraft.world.entity.LivingEntity;
 import dev.gigaherz.jsonthings.things.events.FlexEventContext;
 import static dev.gigaherz.jsonthings.things.events.FlexEventContext.*;
 import dev.gigaherz.jsonthings.things.events.FlexEventType;
+import dev.gigaherz.jsonthings.things.scripting.client.IClientLogic;
 import net.minecraft.commands.CommandSource;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
@@ -19,7 +22,6 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentContents;
 import net.minecraft.network.chat.contents.TranslatableContents;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
@@ -27,11 +29,10 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
@@ -43,81 +44,17 @@ public class McFunctionScript extends ThingScript {
     public static final String TRUE = "predicate []";
     public static final String FALSE = "predicate {condition:value_check,value:1,range:0}";
 
-    public class ClientLogic {
-        public ClientLogic(String item, String block, String hand) {
-            this.item = item;
-            this.block = block;
-            this.hand = hand;
-        }
-
-        public String item = null;
-        public String block = null;
-        public String hand = null;
-
-        public void putItemRequirement(String item) {
-            this.item = item;
-        }
-
-        public void putBlockRequirement(String block) {
-            this.block = block;
-        }
-
-        public void putHandRequirement(String hand) {
-            this.hand = hand;
-        }
-
-        public Object getResult(FlexEventType event, FlexEventContext context) {
-            if (this.item == null && this.block == null && this.hand == null)
-                return getDefaultByEventType(event, context);
-            Entity user = context.get(FlexEventContext.USER);
-            Level level = user.level();
-            if (!level.isClientSide)
-                return getDefaultByEventType(event, context); // Dont call me plz
-            InteractionHand hand = context.get(FlexEventContext.HAND);
-            if (this.item != null) {
-                ItemStack stack1 = context.get(FlexEventContext.STACK);
-                Player player = user instanceof Player p ? p : null;
-                ItemStack stack2 = player != null
-                        ? hand == InteractionHand.OFF_HAND ? player.getOffhandItem() : player.getMainHandItem()
-                        : null;
-                Item ano = BuiltInRegistries.ITEM.get(ResourceLocation.parse(item));
-                LOGGER.debug("clientLogic item: {}", ano);
-                boolean a = stack1 == null;
-                boolean b = stack2 == null;
-                LOGGER.debug("clientLogic item: {}, stack1: {}, stack2: {}", ano, stack1, stack2);
-                if ((a || !stack1.is(ano)) && (b || !stack2.is(ano)))
-                    return getDefaultByEventType(event, context);
-            }
-            if (this.hand != null) {
-                if (hand == null)
-                    return getDefaultByEventType(event, context);
-                if (!hand.toString().equals(this.hand))
-                    return getDefaultByEventType(event, context);
-            }
-            if (this.block != null) {
-                BlockPos pos = context.get(FlexEventContext.BLOCK_POS);
-                if (pos == null)
-                    return getDefaultByEventType(event, context);
-                Block one = level.getBlockState(pos).getBlock();
-                Block ano = BuiltInRegistries.BLOCK.get(ResourceLocation.tryParse(this.block));
-                if (!one.equals(ano))
-                    return getDefaultByEventType(event, context);
-            }
-            return getResultByEventType(event, context, 1);
-        }
-    }
-
-    public final ClientLogic clientLogic;
+    public final IClientLogic clientLogic;
 
     public static final Logger LOGGER = LogUtils.getLogger();
 
-    public McFunctionScript(String string, Boolean debug, String item, String block, String hand) {
+    public McFunctionScript(String string, Boolean debug, IClientLogic logic) {
         this.function = string;
         this.debug = debug;
-        this.clientLogic = new ClientLogic(item, block, hand);
+        this.clientLogic = logic;
     }
 
-    public InteractionResult getResult(int i) {
+    public static InteractionResult getResult(int i) {
         switch (i) {
             case 0:
                 return InteractionResult.PASS;
@@ -132,7 +69,7 @@ public class McFunctionScript extends ThingScript {
         }
     }
 
-    public ItemInteractionResult getItemResult(int i) {
+    public static ItemInteractionResult getItemResult(int i) {
         switch (i) {
             case 0:
                 return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
@@ -147,7 +84,7 @@ public class McFunctionScript extends ThingScript {
         }
     }
 
-    public Object getDefaultByEventType(FlexEventType event, FlexEventContext context) {
+    public static Object getDefaultByEventType(FlexEventType event, FlexEventContext context) {
         if (event == FlexEventType.USE_BLOCK_WITH_ITEM)
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         if (event == FlexEventType.USE_BLOCK_WITHOUT_ITEM || event == FlexEventType.BEFORE_DESTROY)
@@ -161,7 +98,7 @@ public class McFunctionScript extends ThingScript {
         return null;
     }
 
-    public Object getResultByEventType(FlexEventType event, FlexEventContext context, Object o) {
+    public static Object getResultByEventType(FlexEventType event, FlexEventContext context, Object o) {
         if (event == FlexEventType.USE_BLOCK_WITH_ITEM) {
             if (o instanceof Integer r)
                 return getItemResult(r);
@@ -217,7 +154,7 @@ public class McFunctionScript extends ThingScript {
                 Vec3 HitPos = hitPos == null ? new Vec3(0, 0, 0)
                         : new Vec3(hitPos.getX(), hitPos.getY(), hitPos.getZ());
                 Direction hitFace = context.get(HIT_FACE);
-                String HitFace = hitFace == null ? "east" : hitFace.name();
+                String HitFace = hitFace == null ? "east" : hitFace.name().toLowerCase();
                 Vec3 HitVec = orElse(context.get(HIT_VEC), new Vec3(0, 0, 0));
                 Boolean hitInside = context.get(HIT_INSIDE);
                 String HitInside = hitInside == null ? FALSE : hitInside == true ? TRUE : FALSE;
@@ -235,7 +172,15 @@ public class McFunctionScript extends ThingScript {
                 BlockState blockState = context.get(BLOCK_STATE);
                 String Block = blockState == null ? "minecraft:air"
                         : BuiltInRegistries.BLOCK.wrapAsHolder(blockState.getBlock()).getRegisteredName();
-                // String State; // McFunction can get this itself // Actually I dont know how to get
+                String States = "";
+                if (blockState != null) { // OK now I know
+                    StringBuilder sb = new StringBuilder();
+                    Map<Property<?>, Comparable<?>> properties = blockState.getValues();
+                    properties.forEach(
+                            (key, val) -> sb.append(String.format(",State_%s:%s", key.getName(), val.toString())));
+                    States = sb.toString();
+                }
+
                 Entity attacker = context.get(ATTACKER);
                 String AttackerUUID = attacker == null ? NO_TARGET : attacker.getUUID().toString();
                 Entity target = context.get(TARGET);
@@ -248,10 +193,10 @@ public class McFunctionScript extends ThingScript {
                     pos = new Vec3(user.getX(), user.getY(), user.getZ());
                 }
                 String args = String.format(
-                        "{Item:\"%s\",Count:%d,User:\"%s\",Hand:\"%s\",RayX:%f,RayY:%f,RayZ:%f,HitX:%f,HitY:%f,HitZ:%f,HitFace:\"%s\",HitVX:%f,HitVY:%f,HitVZ:%f,HitInside:\"%s\",HitEntity:\"%s\",Slot:%d,Selected:\"%s\",OtherUser:\"%s\",TimeLeft:%d,BlockX:%d,BlockY:%d,BlockZ:%d,Attacker:\"%s\",Target:\"%s\",Block:\"%s\"}",
+                        "{Item:\"%s\",Count:%d,User:\"%s\",Hand:\"%s\",RayX:%f,RayY:%f,RayZ:%f,HitX:%f,HitY:%f,HitZ:%f,HitFace:\"%s\",HitVX:%f,HitVY:%f,HitVZ:%f,HitInside:\"%s\",HitEntity:\"%s\",Slot:%d,Selected:\"%s\",OtherUser:\"%s\",TimeLeft:%d,BlockX:%d,BlockY:%d,BlockZ:%d,Attacker:\"%s\",Target:\"%s\",Block:\"%s\"%s}",
                         Item, Count, UserUUID, HandSlot, RayPos.x, RayPos.y, RayPos.z, HitPos.x, HitPos.y, HitPos.z,
                         HitFace, HitVec.x, HitVec.y, HitVec.z, HitInside, HitEntityUUID, Slot, Selected, OtherUserUUID,
-                        TimeLeft, BlockPos.getX(), BlockPos.getY(), BlockPos.getZ(), AttackerUUID, TargetUUID, Block);
+                        TimeLeft, BlockPos.getX(), BlockPos.getY(), BlockPos.getZ(), AttackerUUID, TargetUUID, Block, States);
                 LOGGER.debug(event.toString());
                 MinecraftServer server = level.getServer();
                 if (server != null) {
