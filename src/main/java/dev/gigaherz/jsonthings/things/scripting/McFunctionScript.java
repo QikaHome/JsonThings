@@ -56,6 +56,8 @@ public class McFunctionScript extends ThingScript {
 
     public static InteractionResult getResult(int i) {
         switch (i) {
+            case -1:
+                return null;
             case 0:
                 return InteractionResult.PASS;
             case 1:
@@ -71,6 +73,8 @@ public class McFunctionScript extends ThingScript {
 
     public static ItemInteractionResult getItemResult(int i) {
         switch (i) {
+            case -1:
+                return null;
             case 0:
                 return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
             case 1:
@@ -196,7 +200,8 @@ public class McFunctionScript extends ThingScript {
                         "{Item:\"%s\",Count:%d,User:\"%s\",Hand:\"%s\",RayX:%f,RayY:%f,RayZ:%f,HitX:%f,HitY:%f,HitZ:%f,HitFace:\"%s\",HitVX:%f,HitVY:%f,HitVZ:%f,HitInside:\"%s\",HitEntity:\"%s\",Slot:%d,Selected:\"%s\",OtherUser:\"%s\",TimeLeft:%d,BlockX:%d,BlockY:%d,BlockZ:%d,Attacker:\"%s\",Target:\"%s\",Block:\"%s\"%s}",
                         Item, Count, UserUUID, HandSlot, RayPos.x, RayPos.y, RayPos.z, HitPos.x, HitPos.y, HitPos.z,
                         HitFace, HitVec.x, HitVec.y, HitVec.z, HitInside, HitEntityUUID, Slot, Selected, OtherUserUUID,
-                        TimeLeft, BlockPos.getX(), BlockPos.getY(), BlockPos.getZ(), AttackerUUID, TargetUUID, Block, States);
+                        TimeLeft, BlockPos.getX(), BlockPos.getY(), BlockPos.getZ(), AttackerUUID, TargetUUID, Block,
+                        States);
                 LOGGER.debug(event.toString());
                 MinecraftServer server = level.getServer();
                 if (server != null) {
