@@ -1,6 +1,8 @@
 package dev.gigaherz.jsonthings.things.scripting;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Map;
 
 import org.slf4j.Logger;
 
@@ -30,6 +32,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
@@ -151,7 +154,7 @@ public class McFunctionScript extends ThingScript {
                 Vec3 HitPos = hitPos == null ? new Vec3(0, 0, 0)
                         : new Vec3(hitPos.getX(), hitPos.getY(), hitPos.getZ());
                 Direction hitFace = context.get(HIT_FACE);
-                String HitFace = hitFace == null ? "east" : hitFace.name();
+                String HitFace = hitFace == null ? "east" : hitFace.name().toLowerCase();
                 Vec3 HitVec = orElse(context.get(HIT_VEC), new Vec3(0, 0, 0));
                 Boolean hitInside = context.get(HIT_INSIDE);
                 String HitInside = hitInside == null ? FALSE : hitInside == true ? TRUE : FALSE;
@@ -169,7 +172,15 @@ public class McFunctionScript extends ThingScript {
                 BlockState blockState = context.get(BLOCK_STATE);
                 String Block = blockState == null ? "minecraft:air"
                         : BuiltInRegistries.BLOCK.wrapAsHolder(blockState.getBlock()).getRegisteredName();
-                // String State; // McFunction can get this itself // Actually I dont know how to get
+                String States = "";
+                if (blockState != null) { // OK now I know
+                    StringBuilder sb = new StringBuilder();
+                    Map<Property<?>, Comparable<?>> properties = blockState.getValues();
+                    properties.forEach(
+                            (key, val) -> sb.append(String.format(",State_%s:%s", key.getName(), val.toString())));
+                    States = sb.toString();
+                }
+
                 Entity attacker = context.get(ATTACKER);
                 String AttackerUUID = attacker == null ? NO_TARGET : attacker.getUUID().toString();
                 Entity target = context.get(TARGET);
@@ -182,10 +193,10 @@ public class McFunctionScript extends ThingScript {
                     pos = new Vec3(user.getX(), user.getY(), user.getZ());
                 }
                 String args = String.format(
-                        "{Item:\"%s\",Count:%d,User:\"%s\",Hand:\"%s\",RayX:%f,RayY:%f,RayZ:%f,HitX:%f,HitY:%f,HitZ:%f,HitFace:\"%s\",HitVX:%f,HitVY:%f,HitVZ:%f,HitInside:\"%s\",HitEntity:\"%s\",Slot:%d,Selected:\"%s\",OtherUser:\"%s\",TimeLeft:%d,BlockX:%d,BlockY:%d,BlockZ:%d,Attacker:\"%s\",Target:\"%s\",Block:\"%s\"}",
+                        "{Item:\"%s\",Count:%d,User:\"%s\",Hand:\"%s\",RayX:%f,RayY:%f,RayZ:%f,HitX:%f,HitY:%f,HitZ:%f,HitFace:\"%s\",HitVX:%f,HitVY:%f,HitVZ:%f,HitInside:\"%s\",HitEntity:\"%s\",Slot:%d,Selected:\"%s\",OtherUser:\"%s\",TimeLeft:%d,BlockX:%d,BlockY:%d,BlockZ:%d,Attacker:\"%s\",Target:\"%s\",Block:\"%s\"%s}",
                         Item, Count, UserUUID, HandSlot, RayPos.x, RayPos.y, RayPos.z, HitPos.x, HitPos.y, HitPos.z,
                         HitFace, HitVec.x, HitVec.y, HitVec.z, HitInside, HitEntityUUID, Slot, Selected, OtherUserUUID,
-                        TimeLeft, BlockPos.getX(), BlockPos.getY(), BlockPos.getZ(), AttackerUUID, TargetUUID, Block);
+                        TimeLeft, BlockPos.getX(), BlockPos.getY(), BlockPos.getZ(), AttackerUUID, TargetUUID, Block, States);
                 LOGGER.debug(event.toString());
                 MinecraftServer server = level.getServer();
                 if (server != null) {
