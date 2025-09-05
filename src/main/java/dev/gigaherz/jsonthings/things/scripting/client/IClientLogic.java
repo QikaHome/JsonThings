@@ -11,6 +11,10 @@ import dev.gigaherz.jsonthings.things.events.FlexEventContext;
 import dev.gigaherz.jsonthings.things.events.FlexEventType;
 import net.minecraft.resources.ResourceLocation;
 
+import net.neoforged.api.distmarker.OnlyIn;
+import net.neoforged.api.distmarker.Dist;
+
+@OnlyIn(Dist.CLIENT)
 public interface IClientLogic {
     public default Object getResult(FlexEventType<?> event, FlexEventContext context)
     {

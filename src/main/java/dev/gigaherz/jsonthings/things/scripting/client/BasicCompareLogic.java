@@ -17,7 +17,10 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.neoforged.api.distmarker.OnlyIn;
+import net.neoforged.api.distmarker.Dist;
 
+@OnlyIn(Dist.CLIENT)
 public class BasicCompareLogic implements IClientLogic {
 
     public BasicCompareLogic(String item, String block, String hand) {
