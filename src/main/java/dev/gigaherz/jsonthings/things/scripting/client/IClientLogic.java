@@ -9,6 +9,7 @@ import com.google.gson.JsonObject;
 
 import dev.gigaherz.jsonthings.things.events.FlexEventContext;
 import dev.gigaherz.jsonthings.things.events.FlexEventType;
+import dev.gigaherz.jsonthings.util.KeyNotFoundException;
 import net.minecraft.resources.ResourceLocation;
 
 import net.neoforged.api.distmarker.OnlyIn;
@@ -36,8 +37,7 @@ public interface IClientLogic {
 
         if(CLIENT_LOGICS.containsKey(rl))
         return CLIENT_LOGICS.get(rl).apply(data);
-        LOGGER.error("No client logic found for {}, fall to default", rl);
-        return IClientLogic.DEFAULT;
+        throw new KeyNotFoundException("Client logic with id " + rl + " not found.");
     }
     public static IClientLogic getClientLogic(String str, JsonObject data)
     {
