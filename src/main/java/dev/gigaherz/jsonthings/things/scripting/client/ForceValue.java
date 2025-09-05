@@ -7,7 +7,10 @@ import com.google.gson.JsonObject;
 import dev.gigaherz.jsonthings.things.events.FlexEventContext;
 import dev.gigaherz.jsonthings.things.events.FlexEventType;
 import dev.gigaherz.jsonthings.util.parse.JParse;
+import net.neoforged.api.distmarker.OnlyIn;
+import net.neoforged.api.distmarker.Dist;
 
+@OnlyIn(Dist.CLIENT)
 public class ForceValue implements IClientLogic {
     public int value;
 

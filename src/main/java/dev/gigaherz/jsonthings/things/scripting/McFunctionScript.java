@@ -1,7 +1,6 @@
 package dev.gigaherz.jsonthings.things.scripting;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -24,6 +23,7 @@ import net.minecraft.network.chat.ComponentContents;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
@@ -150,6 +150,7 @@ public class McFunctionScript extends ThingScript {
                 int Count = stack == null ? 0 : stack.getCount();
                 LivingEntity user = context.get(USER);
                 String UserUUID = user == null ? NO_TARGET : user.getUUID().toString();
+                String Sneaking = user != null ? user.isShiftKeyDown() ? TRUE : FALSE : FALSE;
                 InteractionHand hand = context.get(HAND);
                 String HandSlot = hand == InteractionHand.OFF_HAND ? "weapon.offhand" : "weapon.mainhand";
                 HitResult rayTraceResult = context.get(RAYTRACE_RESULT);
@@ -197,11 +198,11 @@ public class McFunctionScript extends ThingScript {
                     pos = new Vec3(user.getX(), user.getY(), user.getZ());
                 }
                 String args = String.format(
-                        "{Item:\"%s\",Count:%d,User:\"%s\",Hand:\"%s\",RayX:%f,RayY:%f,RayZ:%f,HitX:%f,HitY:%f,HitZ:%f,HitFace:\"%s\",HitVX:%f,HitVY:%f,HitVZ:%f,HitInside:\"%s\",HitEntity:\"%s\",Slot:%d,Selected:\"%s\",OtherUser:\"%s\",TimeLeft:%d,BlockX:%d,BlockY:%d,BlockZ:%d,Attacker:\"%s\",Target:\"%s\",Block:\"%s\"%s}",
+                        "{Item:\"%s\",Count:%d,User:\"%s\",Hand:\"%s\",RayX:%f,RayY:%f,RayZ:%f,HitX:%f,HitY:%f,HitZ:%f,HitFace:\"%s\",HitVX:%f,HitVY:%f,HitVZ:%f,HitInside:\"%s\",HitEntity:\"%s\",Slot:%d,Selected:\"%s\",OtherUser:\"%s\",TimeLeft:%d,BlockX:%d,BlockY:%d,BlockZ:%d,Attacker:\"%s\",Target:\"%s\",Block:\"%s\",Sneaking:\"%s\"%s}",
                         Item, Count, UserUUID, HandSlot, RayPos.x, RayPos.y, RayPos.z, HitPos.x, HitPos.y, HitPos.z,
                         HitFace, HitVec.x, HitVec.y, HitVec.z, HitInside, HitEntityUUID, Slot, Selected, OtherUserUUID,
                         TimeLeft, BlockPos.getX(), BlockPos.getY(), BlockPos.getZ(), AttackerUUID, TargetUUID, Block,
-                        States);
+                        Sneaking,States);
                 LOGGER.debug(event.toString());
                 MinecraftServer server = level.getServer();
                 if (server != null) {
